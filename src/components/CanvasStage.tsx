@@ -36,8 +36,16 @@ export function CanvasStage() {
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
   }, []);
-  // Auto-fit canvas to container on mobile/tablet
-  const responsiveZoom = Math.min(containerSize.width / (document.width + 100), containerSize.height / (document.height + 100), zoom);
+  // Auto-fit canvas to container with proper padding for vertical rectangles
+  const paddingX = 80; // Horizontal padding
+  const paddingY = 80; // Vertical padding
+  const responsiveZoom = containerSize.width > 0 && containerSize.height > 0 
+    ? Math.min(
+        (containerSize.width - paddingX) / document.width,
+        (containerSize.height - paddingY) / document.height,
+        zoom
+      )
+    : zoom;
   const handleLayerMouseDown = (e: React.MouseEvent, layerId: string) => {
     e.stopPropagation();
     selectLayer(layerId);
@@ -291,14 +299,12 @@ export function CanvasStage() {
       </div>;
   };
   return <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden p-2 md:p-4">
-      <div ref={canvasRef} className="bg-white shadow-2xl relative overflow-hidden" style={{
+      <div ref={canvasRef} className="bg-white shadow-2xl relative" style={{
       width: document.width,
       height: document.height,
       transform: `scale(${responsiveZoom})`,
       transformOrigin: 'center',
-      backgroundColor: document.background.color,
-      maxWidth: '100%',
-      maxHeight: '100%'
+      backgroundColor: document.background.color
     }} onClick={handleCanvasClick}>
         {document.layers.sort((a, b) => a.zIndex - b.zIndex).map(renderLayer)}
         {renderSelectionHandles()}

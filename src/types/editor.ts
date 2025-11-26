@@ -31,6 +31,7 @@ export interface Layer {
 }
 export interface Document {
   id: string;
+  name?: string;
   width: number;
   height: number;
   background: {
