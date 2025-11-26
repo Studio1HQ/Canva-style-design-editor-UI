@@ -39,13 +39,17 @@ export function CanvasStage() {
   // Auto-fit canvas to container with proper padding for vertical rectangles
   const paddingX = 80; // Horizontal padding
   const paddingY = 80; // Vertical padding
-  const responsiveZoom = containerSize.width > 0 && containerSize.height > 0 
+  
+  // Calculate the auto-fit zoom (what would fit the canvas in the viewport)
+  const autoFitZoom = containerSize.width > 0 && containerSize.height > 0 
     ? Math.min(
         (containerSize.width - paddingX) / document.width,
-        (containerSize.height - paddingY) / document.height,
-        zoom
+        (containerSize.height - paddingY) / document.height
       )
-    : zoom;
+    : 1;
+  
+  // Use user's zoom level, but default to auto-fit if zoom is at 1 (fit mode)
+  const responsiveZoom = zoom === 1 ? autoFitZoom : zoom;
   const handleLayerMouseDown = (e: React.MouseEvent, layerId: string) => {
     e.stopPropagation();
     selectLayer(layerId);
