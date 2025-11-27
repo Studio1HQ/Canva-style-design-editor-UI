@@ -1,11 +1,20 @@
-import React, { useState, createElement } from 'react';
-import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu } from 'lucide-react';
+import React, { useState, useEffect, useRef, createElement } from 'react';
+import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown } from 'lucide-react';
+import { VeltPresence } from '@veltdev/react';
 import { useEditorStore } from '../store/editorStore';
 import { ExportModal } from './ExportModal';
 import { SaveModal } from './SaveModal';
 import { LoadModal } from './LoadModal';
 import { saveToJSON, loadFromJSON } from '../utils/export';
-export function TopBar() {
+import { User } from '../types/user';
+
+interface TopBarProps {
+  currentUser: User;
+  staticUsers: User[];
+  onSwitchUser: (user: User) => void;
+}
+
+export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) {
   const {
     zoom,
     setZoom,
@@ -13,7 +22,7 @@ export function TopBar() {
     redo,
     history,
     historyIndex,
-    document,
+    document: editorDocument,
     loadDocument,
     resetDocument
   } = useEditorStore();
@@ -21,8 +30,28 @@ export function TopBar() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
+
   const handleExportJSON = () => {
-    saveToJSON(document);
+    saveToJSON(editorDocument);
   };
   const handleImportJSON = () => {
     const input = document.createElement('input');
@@ -80,6 +109,62 @@ export function TopBar() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
+          {/* Presence Avatars */}
+          <div className="hidden md:flex items-center">
+            <VeltPresence />
+          </div>
+
+          {/* User Switcher */}
+          <div ref={userDropdownRef} className="relative hidden md:block">
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded transition-colors"
+            >
+              <img
+                src={currentUser.photoUrl}
+                alt={currentUser.name}
+                className="w-7 h-7 rounded-full"
+              />
+              <span className="text-sm font-medium hidden lg:inline">{currentUser.name}</span>
+              <ChevronDown size={16} />
+            </button>
+
+            {showUserDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                <div className="px-4 py-2 border-b border-gray-200">
+                  <p className="text-xs text-gray-500 font-medium">Switch User</p>
+                </div>
+                {staticUsers.map((user) => (
+                  <button
+                    key={user.userId}
+                    onClick={() => {
+                      onSwitchUser(user);
+                      setShowUserDropdown(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors ${
+                      user.userId === currentUser.userId ? 'bg-indigo-50' : ''
+                    }`}
+                  >
+                    <img
+                      src={user.photoUrl}
+                      alt={user.name}
+                      className="w-9 h-9 rounded-full"
+                    />
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                    {user.userId === currentUser.userId && (
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden md:block w-px h-6 bg-white/20" />
+
           {/* Undo/Redo */}
           <div className="flex items-center gap-1 md:gap-2">
             <button onClick={undo} disabled={!canUndo} className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
