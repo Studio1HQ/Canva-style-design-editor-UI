@@ -5,7 +5,7 @@ import { LeftSidebar } from './components/LeftSidebar';
 import { CanvasStage } from './components/CanvasStage';
 import { RightInspector } from './components/RightInspector';
 import { LayerList } from './components/LayerList';
-import { useEditorStore } from './store/editorStore';
+import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { User } from './types/user';
 
 // Static users configuration
@@ -41,7 +41,7 @@ function AppContent({
   const {
     undo,
     redo
-  } = useEditorStore();
+  } = useEditor();
 
   useEffect(() => {
     const initializeVelt = async () => {
@@ -119,11 +119,13 @@ export function App() {
 
   return (
     <VeltProvider apiKey={apiKey}>
-      <AppContent
-        currentUser={currentUser}
-        staticUsers={staticUsers}
-        onSwitchUser={switchUser}
-      />
+      <EditorProvider>
+        <AppContent
+          currentUser={currentUser}
+          staticUsers={staticUsers}
+          onSwitchUser={switchUser}
+        />
+      </EditorProvider>
     </VeltProvider>
   );
 }
