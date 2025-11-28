@@ -186,4 +186,20 @@ Use skipOffscreen or similar when you have many objects to avoid slow re-renders
 
 ## Screenshots (Magicpatterns)
 
+### Initial prompt
+
+<img width="1920" height="1080" alt="1763642557708-SCR-20251120-oacf" src="https://github.com/user-attachments/assets/20e48ef6-e609-4ea3-aeb9-3cb62859445f" />
+
+### Initial prompt response
+
+<img width="1920" height="1080" alt="1763642568232-SCR-20251120-ognf" src="https://github.com/user-attachments/assets/926e278c-65b6-4bd0-bd10-1e5f42856d05" />
+
+### Responsive prompt
+
+<img width="3200" height="1800" alt="SCR-20251126-kgkk" src="https://github.com/user-attachments/assets/01dbd23c-6834-403d-b731-f902c947f0e5" />
+
+### Responsive prompt response
+
+<img width="3200" height="1800" alt="SCR-20251126-kids" src="https://github.com/user-attachments/assets/b9ccec61-2c88-4959-ae6b-5fe579ab159c" />
+
 
