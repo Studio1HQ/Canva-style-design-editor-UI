@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { VeltProvider, useVeltClient } from '@veltdev/react';
+import { VeltProvider, useVeltClient, VeltComments } from '@veltdev/react';
 import { TopBar } from './components/TopBar';
 import { BottomBar } from './components/BottomBar';
 import { LeftSidebar } from './components/LeftSidebar';
@@ -9,20 +9,20 @@ import { LayerList } from './components/LayerList';
 import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { User } from './types/user';
 
-// Static users configuration
+// Static users configuration - Rick and Morty
 const staticUsers: User[] = [
   {
     userId: "user-1",
-    name: "Alice Johnson",
-    email: "alice@example.com",
-    photoUrl: "https://i.pravatar.cc/150?img=1",
+    name: "Rick Sanchez",
+    email: "rick@rickandmorty.com",
+    photoUrl: "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
     organizationId: "org-1",
   },
   {
     userId: "user-2",
-    name: "Bob Smith",
-    email: "bob@example.com",
-    photoUrl: "https://i.pravatar.cc/150?img=12",
+    name: "Morty Smith",
+    email: "morty@rickandmorty.com",
+    photoUrl: "https://rickandmortyapi.com/api/character/avatar/2.jpeg",
     organizationId: "org-1",
   },
 ];
@@ -121,6 +121,7 @@ export function App() {
 
   return (
     <VeltProvider apiKey={apiKey}>
+      <VeltComments />
       <EditorProvider>
         <AppContent
           currentUser={currentUser}
