@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { VeltProvider, useVeltClient } from '@veltdev/react';
 import { TopBar } from './components/TopBar';
+import { BottomBar } from './components/BottomBar';
 import { LeftSidebar } from './components/LeftSidebar';
 import { CanvasStage } from './components/CanvasStage';
 import { RightInspector } from './components/RightInspector';
@@ -96,6 +97,7 @@ function AppContent({
         <RightInspector />
         <LayerList />
       </div>
+      <BottomBar />
     </div>;
 }
 

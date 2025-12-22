@@ -14,11 +14,7 @@ export function RightInspector() {
   const [showFillPicker, setShowFillPicker] = useState(false);
   const [showStrokePicker, setShowStrokePicker] = useState(false);
   if (!selectedLayer) {
-    return <div className="hidden lg:block w-80 bg-white border-l border-gray-200 p-6">
-        <p className="text-gray-400 text-center text-sm">
-          Select a layer to edit properties
-        </p>
-      </div>;
+    return null;
   }
   const handleUpdate = (updates: any) => {
     updateLayer(selectedLayerId!, updates);

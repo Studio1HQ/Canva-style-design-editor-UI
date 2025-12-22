@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createElement } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown } from 'lucide-react';
 import { VeltPresence } from '@veltdev/react';
 import { useEditorStore } from '../store/editorStore';
@@ -73,42 +73,102 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
   };
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+  const [showFileMenu, setShowFileMenu] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close file menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(event.target as Node)) {
+        setShowFileMenu(false);
+      }
+    };
+
+    if (showFileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFileMenu]);
+
   return <>
-      <div className="h-14 md:h-16 bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-between px-3 md:px-6 text-white shadow-lg">
-        <div className="flex items-center gap-2 md:gap-6 flex-1 min-w-0">
-          <h1 className="text-base md:text-lg font-bold truncate">
-            Collaborative Canvas
-          </h1>
-
-          {/* Desktop Menu */}
-          <div className="hidden lg:flex items-center gap-2">
-            <button onClick={resetDocument} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors whitespace-nowrap">
-              New
-            </button>
-            <button onClick={() => setShowSaveModal(true)} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors flex items-center gap-1.5 whitespace-nowrap">
-              <Save size={16} />
-              Save
-            </button>
-            <button onClick={() => setShowLoadModal(true)} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors flex items-center gap-1.5 whitespace-nowrap">
-              <FolderOpen size={16} />
-              Load
-            </button>
-            <button onClick={handleExportJSON} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors flex items-center gap-1.5 whitespace-nowrap">
-              <FileJson size={16} />
-              Export JSON
-            </button>
-            <button onClick={handleImportJSON} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors whitespace-nowrap">
-              Import JSON
-            </button>
-          </div>
-
+      <div className="h-12 bg-[#252627] flex items-center justify-between px-3 text-white">
+        {/* Left Section: Menu, File, Undo/Redo */}
+        <div className="flex items-center gap-1">
           {/* Mobile Menu Button */}
           <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="lg:hidden p-2 hover:bg-white/10 rounded transition-colors">
             <Menu size={20} />
           </button>
+
+          {/* Desktop: Hamburger Menu */}
+          <button className="hidden lg:flex p-2 hover:bg-white/10 rounded transition-colors">
+            <Menu size={20} />
+          </button>
+
+          {/* File Dropdown */}
+          <div ref={fileMenuRef} className="relative hidden lg:block">
+            <button
+              onClick={() => setShowFileMenu(!showFileMenu)}
+              className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors"
+            >
+              File
+            </button>
+            {showFileMenu && (
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <button
+                  onClick={() => { resetDocument(); setShowFileMenu(false); }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  New Design
+                </button>
+                <button
+                  onClick={() => { setShowSaveModal(true); setShowFileMenu(false); }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  Save
+                </button>
+                <button
+                  onClick={() => { setShowLoadModal(true); setShowFileMenu(false); }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <FolderOpen size={16} />
+                  Load
+                </button>
+                <div className="border-t border-gray-200 my-1"></div>
+                <button
+                  onClick={() => { handleExportJSON(); setShowFileMenu(false); }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <FileJson size={16} />
+                  Export JSON
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Undo/Redo - closer to left like Canva */}
+          <div className="hidden lg:flex items-center ml-2">
+            <button onClick={undo} disabled={!canUndo} className="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
+              <Undo2 size={18} />
+            </button>
+            <button onClick={redo} disabled={!canRedo} className="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Cmd+Shift+Z)">
+              <Redo2 size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4">
+        {/* Center Section: Document Title */}
+        <div className="flex-1 flex justify-center">
+          <span className="text-sm text-gray-300 truncate max-w-md hidden md:block">
+            {editorDocument.name || 'Untitled Design'}
+          </span>
+        </div>
+
+        {/* Right Section: Presence, Zoom, Share */}
+        <div className="flex items-center gap-2">
           {/* Presence Avatars */}
           <div className="hidden md:flex items-center">
             <VeltPresence />
@@ -118,15 +178,14 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
           <div ref={userDropdownRef} className="relative hidden md:block">
             <button
               onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded transition-colors"
+              className="flex items-center gap-2 p-1.5 hover:bg-white/10 rounded transition-colors"
             >
               <img
                 src={currentUser.photoUrl}
                 alt={currentUser.name}
                 className="w-7 h-7 rounded-full"
               />
-              <span className="text-sm font-medium hidden lg:inline">{currentUser.name}</span>
-              <ChevronDown size={16} />
+              <ChevronDown size={14} className="text-gray-400" />
             </button>
 
             {showUserDropdown && (
@@ -163,48 +222,42 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
             )}
           </div>
 
-          <div className="hidden md:block w-px h-6 bg-white/20" />
-
-          {/* Undo/Redo */}
-          <div className="flex items-center gap-1 md:gap-2">
-            <button onClick={undo} disabled={!canUndo} className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
-              <Undo2 size={16} className="md:w-[18px] md:h-[18px]" />
-            </button>
-            <button onClick={redo} disabled={!canRedo} className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Cmd+Shift+Z)">
-              <Redo2 size={16} className="md:w-[18px] md:h-[18px]" />
-            </button>
-          </div>
-
-          <div className="hidden md:block w-px h-6 bg-white/20" />
-
           {/* Zoom Controls */}
-          <div className="hidden md:flex items-center gap-2">
-            <button onClick={() => setZoom(Math.max(0.1, zoom - 0.1))} className="p-2 hover:bg-white/10 rounded transition-colors" title="Zoom Out">
+          <div className="hidden md:flex items-center gap-1 ml-2">
+            <button onClick={() => setZoom(Math.max(0.1, zoom - 0.1))} className="p-1.5 hover:bg-white/10 rounded transition-colors" title="Zoom Out">
               <ZoomOut size={18} />
             </button>
-            <span className="text-sm font-medium w-12 text-center">
+            <span className="text-xs text-gray-400 w-10 text-center">
               {Math.round(zoom * 100)}%
             </span>
-            <button onClick={() => setZoom(Math.min(3, zoom + 0.1))} className="p-2 hover:bg-white/10 rounded transition-colors" title="Zoom In">
+            <button onClick={() => setZoom(Math.min(3, zoom + 0.1))} className="p-1.5 hover:bg-white/10 rounded transition-colors" title="Zoom In">
               <ZoomIn size={18} />
             </button>
-            <button onClick={() => setZoom(1)} className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors">
+            <button onClick={() => setZoom(1)} className="px-2 py-1 text-xs hover:bg-white/10 rounded transition-colors text-gray-300">
               Fit
             </button>
           </div>
 
-          <div className="hidden md:block w-px h-6 bg-white/20" />
+          {/* Mobile Undo/Redo */}
+          <div className="flex lg:hidden items-center gap-1">
+            <button onClick={undo} disabled={!canUndo} className="p-1.5 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
+              <Undo2 size={16} />
+            </button>
+            <button onClick={redo} disabled={!canRedo} className="p-1.5 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Cmd+Shift+Z)">
+              <Redo2 size={16} />
+            </button>
+          </div>
 
-          {/* Export Button */}
-          <button onClick={() => setShowExportModal(true)} className="px-3 md:px-4 py-1.5 md:py-2 bg-white text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors font-medium flex items-center gap-2 text-sm">
-            <Download size={16} className="md:w-[18px] md:h-[18px]" />
-            <span className="hidden sm:inline">Export</span>
+          {/* Share/Export Button */}
+          <button onClick={() => setShowExportModal(true)} className="px-4 py-1.5 bg-[#8b3dff] hover:bg-[#7c35e6] text-white rounded-lg transition-colors font-medium flex items-center gap-2 text-sm">
+            <Download size={16} />
+            <span className="hidden sm:inline">Share</span>
           </button>
         </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
-      {showMobileMenu && <div className="lg:hidden absolute top-14 md:top-16 left-0 right-0 bg-white shadow-lg border-b border-gray-200 z-40">
+      {showMobileMenu && <div className="lg:hidden absolute top-12 left-0 right-0 bg-white shadow-lg border-b border-gray-200 z-40">
           <div className="p-4 space-y-2">
             <button onClick={() => {
           resetDocument();
