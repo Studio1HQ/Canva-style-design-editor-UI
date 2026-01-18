@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { VeltProvider, useVeltClient, VeltComments } from '@veltdev/react';
+import { useEffect, useState } from 'react';
+import { VeltProvider, useVeltClient, VeltComments, VeltCommentsSidebar } from '@veltdev/react';
 import { TopBar } from './components/TopBar';
 import { BottomBar } from './components/BottomBar';
 import { LeftSidebar } from './components/LeftSidebar';
@@ -122,6 +122,7 @@ export function App() {
   return (
     <VeltProvider apiKey={apiKey}>
       <VeltComments />
+      <VeltCommentsSidebar />
       <EditorProvider>
         <AppContent
           currentUser={currentUser}

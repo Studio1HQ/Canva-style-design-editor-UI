@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown, MessageCircle } from 'lucide-react';
-import { VeltPresence, VeltCommentTool } from '@veltdev/react';
+import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown, MessageCircle, MessageSquare } from 'lucide-react';
+import { VeltPresence, VeltCommentTool, VeltSidebarButton } from '@veltdev/react';
 import { useEditorStore } from '../store/editorStore';
 import { ExportModal } from './ExportModal';
 import { SaveModal } from './SaveModal';
@@ -175,12 +175,17 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
           </div>
 
           {/* Comment Tool - Like Canva's comment button */}
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-1">
             <VeltCommentTool>
               <button className="p-2 hover:bg-white/10 rounded transition-colors" title="Add Comment">
                 <MessageCircle size={18} />
               </button>
             </VeltCommentTool>
+            <VeltSidebarButton>
+              <button className="p-2 hover:bg-white/10 rounded transition-colors" title="Comments Sidebar">
+                <MessageSquare size={18} />
+              </button>
+            </VeltSidebarButton>
           </div>
 
           {/* User Switcher */}
