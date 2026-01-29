@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown, MessageCircle, MessageSquare } from 'lucide-react';
-import { VeltPresence, VeltCommentTool, VeltSidebarButton } from '@veltdev/react';
+import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown, MessageSquare } from 'lucide-react';
+import { VeltPresence, VeltSidebarButton, VeltCommentTool, useVeltClient } from '@veltdev/react';
 import { useEditorStore } from '../store/editorStore';
 import { ExportModal } from './ExportModal';
 import { SaveModal } from './SaveModal';
@@ -31,7 +31,9 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+  const { client } = useVeltClient();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -92,6 +94,23 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showFileMenu]);
+
+  // Enable comment mode when sidebar opens
+  useEffect(() => {
+    if (client && isSidebarOpen) {
+      const commentElement = client.getCommentElement();
+      commentElement.enableCommentMode();
+    }
+  }, [client, isSidebarOpen]);
+
+  // Handle custom sidebar toggle
+  const handleSidebarToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+    if (client) {
+      const commentElement = client.getCommentElement();
+      commentElement.toggleCommentSidebar();
+    }
+  };
 
   return <>
       <div className="h-12 bg-[#252627] flex items-center justify-between px-3 text-white">
@@ -174,18 +193,20 @@ export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) 
             <VeltPresence />
           </div>
 
-          {/* Comment Tool - Like Canva's comment button */}
-          <div className="hidden md:flex items-center gap-1">
-            <VeltCommentTool>
-              <button className="p-2 hover:bg-white/10 rounded transition-colors" title="Add Comment">
-                <MessageCircle size={18} />
-              </button>
-            </VeltCommentTool>
-            <VeltSidebarButton>
-              <button className="p-2 hover:bg-white/10 rounded transition-colors" title="Comments Sidebar">
-                <MessageSquare size={18} />
-              </button>
-            </VeltSidebarButton>
+          {/* Hidden VeltCommentTool for API access */}
+          <div className="hidden">
+            <VeltCommentTool />
+          </div>
+
+          {/* Comments Button - Opens sidebar and enables comment mode */}
+          <div className="hidden md:flex items-center">
+            <button
+              onClick={handleSidebarToggle}
+              className="p-2 hover:bg-white/10 rounded transition-colors"
+              title="Comments"
+            >
+              <MessageSquare size={18} />
+            </button>
           </div>
 
           {/* User Switcher */}

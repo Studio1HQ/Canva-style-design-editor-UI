@@ -121,7 +121,7 @@ export function App() {
 
   return (
     <VeltProvider apiKey={apiKey}>
-      <VeltComments />
+      <VeltComments shadowDom={false} />
       <VeltCommentsSidebar />
       <EditorProvider>
         <AppContent
