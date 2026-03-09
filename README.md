@@ -1,6 +1,8 @@
-# Pixframe — Collaborative Design Editor
+# Pixframe - Collaborative Design Editor
 
-A real-time collaborative design editor built with React, Fabric.js, Zustand, and Velt for seamless multi-user canvas collaboration — think Canva with live presence, synced canvas state, and inline comments.
+A real-time collaborative design editor built with React, Fabric.js, Zustand, and Velt for seamless multi-user canvas collaboration - think Canva with live presence, synced canvas state, and inline comments.
+
+https://github.com/user-attachments/assets/d57a03ae-cd75-42ca-abaf-764505624f6a
 
 ---
 
@@ -88,8 +90,6 @@ Every canvas mutation serialises the Fabric canvas to JSON and pushes it into th
 <VeltComments shadowDom={false} />
 <VeltCommentsSidebar shadowDom={false} />
 ```
-
-That's it. No backend, no websocket boilerplate.
 
 ---
 
