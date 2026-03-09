@@ -141,14 +141,14 @@ const GRADIENTS = [
 ];
 
 const GRADIENT_ANGLES = [
-  { label: "?", deg: 90 },
-  { label: "?", deg: 45 },
-  { label: "?", deg: 0 },
-  { label: "?", deg: 315 },
-  { label: "?", deg: 270 },
-  { label: "?", deg: 225 },
-  { label: "?", deg: 180 },
-  { label: "?", deg: 135 },
+  { label: "↓", deg: 90 },
+  { label: "↘", deg: 45 },
+  { label: "→", deg: 0 },
+  { label: "↗", deg: 315 },
+  { label: "↑", deg: 270 },
+  { label: "↖", deg: 225 },
+  { label: "←", deg: 180 },
+  { label: "↙", deg: 135 },
 ];
 
 const PATTERNS = [
@@ -286,7 +286,7 @@ export const BackgroundPanel: React.FC = () => {
     showToast(`${id} pattern applied`);
   };
 
-  const TABS: BgTab[] = ["solid", "gradient", "image", "pattern"];
+  const TABS: BgTab[] = ["solid", "gradient", "pattern"];
 
   return (
     <div className="p-4 space-y-4">
@@ -460,7 +460,9 @@ export const BackgroundPanel: React.FC = () => {
                   (canvas as any).backgroundImage = img;
                   canvas.renderAll();
                   setBgImageThumb(dataUrl);
-                  const json = JSON.stringify((canvas as any).toObject(["data"]));
+                  const json = JSON.stringify(
+                    (canvas as any).toObject(["data"]),
+                  );
                   pushHistory(json);
                   pushCanvasStateRef.current?.(json);
                   showToast("Background image set");
@@ -490,14 +492,14 @@ export const BackgroundPanel: React.FC = () => {
                 <span className="text-base">
                   {
                     {
-                      dots: "?",
-                      grid: "?",
-                      diagonal: "?",
-                      crosshatch: "?",
-                      waves: "?",
-                      triangles: "?",
-                      hexagons: "?",
-                      noise: "�",
+                      dots: "•",
+                      grid: "▦",
+                      diagonal: "╱",
+                      crosshatch: "╳",
+                      waves: "≈",
+                      triangles: "△",
+                      hexagons: "⬡",
+                      noise: "▒",
                     }[p.id]
                   }
                 </span>
