@@ -1,204 +1,195 @@
-import { useCallback, useState, useEffect } from 'react';
-import { useLiveState } from '@veltdev/react';
-import { Document, Layer } from '../types/editor';
+﻿import { useEffect, useRef, useCallback } from "react";
+import { useVeltCrdtStore } from "@veltdev/crdt-react";
+import { useFabric } from "../contexts/FabricContext";
+import { useEditorStore } from "../store/editorStore";
+import type { LayerMeta } from "../types/editor";
 
-const createDefaultDocument = (): Document => ({
-  id: crypto.randomUUID(),
-  width: 1080,
-  height: 1920,
-  background: {
-    color: '#ffffff'
-  },
-  layers: []
-});
+/** Shape stored in the CRDT text store */
+interface CanvasSnapshot {
+  /** JSON-stringified Fabric canvas (output of canvas.toJSON(["data"])) */
+  json: string;
+  /** JSON-stringified LayerMeta[] */
+  layers: string;
+  /** Canvas dimensions — synced so peers resize their canvas too */
+  canvasSize: { width: number; height: number; name: string };
+}
 
-export const useCollaborativeEditor = () => {
-  // Use Velt's Live State Sync for collaborative document data
-  const [document, setDocument] = useLiveState<Document>(
-    'canvas-collaborative-document',
-    createDefaultDocument(),
-    {
-      syncDuration: 100, // Debounce for 100ms for smooth collaboration
-      resetLiveState: false, // Don't reset when initializing
-      listenToNewChangesOnly: false, // Listen to all changes including historical
-    }
+/**
+ * useCollaborativeEditor
+ *
+ * Bridges the Fabric.js canvas with a Velt CRDT text store so that every
+ * change made locally is propagated to all connected peers in real-time.
+ *
+ * Usage (inside CanvasArea):
+ *   const { pushCanvasState, applyCurrentValue } = useCollaborativeEditor();
+ *   // call applyCurrentValue() once after the Fabric canvas is initialised
+ *   // call pushCanvasState(json) inside every canvas mutation event handler
+ */
+export function useCollaborativeEditor() {
+  const { canvasRef, isRemoteUpdate } = useFabric();
+
+  // One shared CRDT text store for the whole canvas state.
+  // type:'text' gives us a simple full-replacement store backed by Y.Text.
+  // We handle our own 150 ms debounce so debounceMs is omitted here.
+  const { value, update } = useVeltCrdtStore<string>({
+    id: "pixframe-canvas-state",
+    type: "text",
+    initialValue: "",
+    enablePresence: false,
+  });
+
+  // Ref copy of value so stable callbacks can read the latest snapshot
+  // without becoming stale closures.
+  const valueRef = useRef<string>("");
+  useEffect(() => {
+    valueRef.current = value ?? "";
+  }, [value]);
+
+  // The last snapshot we pushed to CRDT — used to suppress the echo when
+  // the store reflects our own update back to us.
+  const lastPushedRef = useRef<string>("");
+
+  // Debounce handle
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Apply a snapshot string to the Fabric canvas ──────────────────────
+  const applySnapshot = useCallback(
+    (raw: string) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !raw) return;
+      try {
+        const { json, layers, canvasSize } = JSON.parse(raw) as CanvasSnapshot;
+        const parsed = JSON.parse(json);
+
+        // Cancel any pending local push so it doesn't overwrite the incoming
+        // remote state after we apply it.
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current);
+          debounceRef.current = null;
+        }
+
+        // Treat this incoming snapshot as "our last known state" so that when
+        // the CRDT store echoes it back (e.g. after re-subscription on user
+        // switch) we don't apply it a second time.
+        lastPushedRef.current = raw;
+
+        isRemoteUpdate.current = true;
+
+        // Apply remote canvas size before loading objects
+        if (canvasSize) {
+          useEditorStore
+            .getState()
+            .setCanvasSize(
+              canvasSize.width,
+              canvasSize.height,
+              canvasSize.name,
+            );
+          canvas.setDimensions({
+            width: canvasSize.width,
+            height: canvasSize.height,
+          });
+        }
+
+        (canvas as any).loadFromJSON(parsed).then(() => {
+          // Restore visibility on each object from the layers snapshot BEFORE
+          // renderAll, so the canvas reflects the correct visible state.
+          if (layers) {
+            const remoteLayers: LayerMeta[] = JSON.parse(layers);
+            remoteLayers.forEach((layer) => {
+              const obj = canvas
+                .getObjects()
+                .find((o: any) => o.data?.id === layer.id);
+              if (obj) obj.set("visible", layer.visible);
+            });
+          }
+
+          canvas.renderAll();
+
+          // Update Zustand layers AFTER canvas objects are fully restored.
+          if (layers) {
+            const remoteLayers: LayerMeta[] = JSON.parse(layers);
+            useEditorStore.getState().setLayers(remoteLayers);
+          }
+
+          // Defer clearing the remote-update flag by two animation frames so
+          // that the React useEffect([layers]) triggered by setLayers() above
+          // fires while isRemoteUpdate is still true.  That prevents the purge
+          // logic in CanvasArea from removing objects that were just loaded.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              isRemoteUpdate.current = false;
+            });
+          });
+        });
+      } catch {
+        // Malformed snapshot — ignore
+      }
+    },
+    [canvasRef, isRemoteUpdate],
   );
 
-  // Local state (not synced across users)
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [history, setHistory] = useState<Document[]>([createDefaultDocument()]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  // ── React to remote value changes ─────────────────────────────────────
+  useEffect(() => {
+    if (!value) return;
+    // Skip echoes of our own pushes
+    if (value === lastPushedRef.current) return;
+    applySnapshot(value);
+  }, [value, applySnapshot]);
 
-  // Save to history helper
-  const saveToHistory = useCallback(() => {
-    if (!document) return;
+  // ── Push local canvas state to CRDT ───────────────────────────────────
+  // Debounced 150 ms so rapid drag operations only push one update.
+  // Layers are read from the Zustand store at flush time (not capture time)
+  // so newly added layers are included even if addLayer() ran after the
+  // canvas event fired.
+  const pushCanvasState = useCallback(
+    (canvasJson: string) => {
+      if (isRemoteUpdate.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        const state = useEditorStore.getState();
+        const snapshot = JSON.stringify({
+          json: canvasJson,
+          layers: JSON.stringify(state.layers),
+          canvasSize: state.canvasSize,
+        } satisfies CanvasSnapshot);
+        lastPushedRef.current = snapshot;
+        update(snapshot);
+      }, 150);
+    },
+    [update, isRemoteUpdate],
+  );
 
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(JSON.parse(JSON.stringify(document)));
+  // ── Immediate push (no debounce) ──────────────────────────────────────
+  // Use for discrete user actions (delete, visibility toggle) where the result
+  // must be reflected in CRDT right away so no in-flight remote echo can revert
+  // the change.
+  const pushCanvasStateImmediate = useCallback(
+    (canvasJson: string) => {
+      if (isRemoteUpdate.current) return;
+      // Cancel any pending debounced push — this one supersedes it
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      const state = useEditorStore.getState();
+      const snapshot = JSON.stringify({
+        json: canvasJson,
+        layers: JSON.stringify(state.layers),
+        canvasSize: state.canvasSize,
+      } satisfies CanvasSnapshot);
+      lastPushedRef.current = snapshot;
+      update(snapshot);
+    },
+    [update, isRemoteUpdate],
+  );
 
-    // Keep only last 10 states
-    const trimmedHistory = newHistory.slice(-10);
-    setHistory(trimmedHistory);
-    setHistoryIndex(trimmedHistory.length - 1);
-  }, [document, history, historyIndex]);
+  // ── Late-joiner initial load ───────────────────────────────────────────
+  // Called once from CanvasArea after the Fabric canvas is initialised.
+  // If a CRDT snapshot is already available (another peer already edited),
+  // it is immediately applied to the blank canvas.
+  const applyCurrentValue = useCallback(() => {
+    applySnapshot(valueRef.current);
+  }, [applySnapshot]);
 
-  // Add layer
-  const addLayer = useCallback((layer: Omit<Layer, 'id' | 'zIndex'>) => {
-    if (!document) return;
-
-    const newLayer: Layer = {
-      ...layer,
-      id: crypto.randomUUID(),
-      zIndex: document.layers.length
-    };
-
-    const newDoc = {
-      ...document,
-      layers: [...document.layers, newLayer]
-    };
-
-    setDocument(newDoc);
-    setSelectedLayerId(newLayer.id);
-
-    // Save to history after state update
-    setTimeout(() => saveToHistory(), 0);
-  }, [document, setDocument, saveToHistory]);
-
-  // Update layer
-  const updateLayer = useCallback((id: string, updates: Partial<Layer>) => {
-    if (!document) return;
-
-    setDocument({
-      ...document,
-      layers: document.layers.map(layer =>
-        layer.id === id ? { ...layer, ...updates } : layer
-      )
-    });
-  }, [document, setDocument]);
-
-  // Delete layer
-  const deleteLayer = useCallback((id: string) => {
-    if (!document) return;
-
-    setDocument({
-      ...document,
-      layers: document.layers.filter(layer => layer.id !== id)
-    });
-
-    if (selectedLayerId === id) {
-      setSelectedLayerId(null);
-    }
-
-    // Save to history after state update
-    setTimeout(() => saveToHistory(), 0);
-  }, [document, setDocument, selectedLayerId, saveToHistory]);
-
-  // Reorder layer
-  const reorderLayer = useCallback((id: string, newIndex: number) => {
-    if (!document) return;
-
-    const layers = [...document.layers];
-    const currentIndex = layers.findIndex(l => l.id === id);
-    if (currentIndex === -1) return;
-
-    const [layer] = layers.splice(currentIndex, 1);
-    layers.splice(newIndex, 0, layer);
-
-    // Update zIndex
-    const updatedLayers = layers.map((l, i) => ({
-      ...l,
-      zIndex: i
-    }));
-
-    setDocument({
-      ...document,
-      layers: updatedLayers
-    });
-
-    // Save to history after state update
-    setTimeout(() => saveToHistory(), 0);
-  }, [document, setDocument, saveToHistory]);
-
-  // Select layer (local only)
-  const selectLayer = useCallback((id: string | null) => {
-    setSelectedLayerId(id);
-  }, []);
-
-  // Set zoom (local only)
-  const handleSetZoom = useCallback((newZoom: number) => {
-    setZoom(newZoom);
-  }, []);
-
-  // Set background
-  const setBackground = useCallback((color: string) => {
-    if (!document) return;
-
-    setDocument({
-      ...document,
-      background: { color }
-    });
-
-    // Save to history after state update
-    setTimeout(() => saveToHistory(), 0);
-  }, [document, setDocument, saveToHistory]);
-
-  // Load document
-  const loadDocument = useCallback((doc: Document) => {
-    setDocument(doc);
-    setSelectedLayerId(null);
-    setHistory([doc]);
-    setHistoryIndex(0);
-  }, [setDocument]);
-
-  // Reset document
-  const resetDocument = useCallback(() => {
-    const newDoc = createDefaultDocument();
-    setDocument(newDoc);
-    setSelectedLayerId(null);
-    setHistory([newDoc]);
-    setHistoryIndex(0);
-  }, [setDocument]);
-
-  // Undo
-  const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setDocument(JSON.parse(JSON.stringify(history[newIndex])));
-      setHistoryIndex(newIndex);
-      setSelectedLayerId(null);
-    }
-  }, [historyIndex, history, setDocument]);
-
-  // Redo
-  const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setDocument(JSON.parse(JSON.stringify(history[newIndex])));
-      setHistoryIndex(newIndex);
-      setSelectedLayerId(null);
-    }
-  }, [historyIndex, history, setDocument]);
-
-  return {
-    // State
-    document: document || createDefaultDocument(),
-    selectedLayerId,
-    zoom,
-    history,
-    historyIndex,
-
-    // Actions
-    addLayer,
-    updateLayer,
-    deleteLayer,
-    reorderLayer,
-    selectLayer,
-    setZoom: handleSetZoom,
-    setBackground,
-    loadDocument,
-    resetDocument,
-    undo,
-    redo,
-  };
-};
+  return { pushCanvasState, pushCanvasStateImmediate, applyCurrentValue };
+}
